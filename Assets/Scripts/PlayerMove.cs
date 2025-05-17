@@ -30,7 +30,7 @@ public partial class PlayerMove : MonoBehaviour
     public LayerMask enemyLayer; // 적 레이어
 
     private bool isGrounded; // 땅에 닿아 있는지 여부
-    Rigidbody2D rigid; // 물리 엔진
+    public Rigidbody2D rigid; // 물리 엔진
     SpriteRenderer spriteRenderer; // 스프라이트 렌더러
     Animator animator; // 애니메이터
     CapsuleCollider2D capsuleCollider; // 캡슐 충돌체
@@ -128,6 +128,13 @@ public partial class PlayerMove : MonoBehaviour
         if (!isJumping)
         {
             animator.SetBool("isWalking", isGrounded && Mathf.Abs(rigid.velocity.x) > 0.1f); // 걷기 애니메이션 제어
+        }
+    }
+    void OnTriggerEnter2D(Collider2D collision)
+    {
+        if (collision.gameObject.tag == "Finish")
+        {
+            gameManager.NextStage();
         }
     }
 

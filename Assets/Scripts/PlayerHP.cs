@@ -13,7 +13,7 @@ public class PlayerHP : MonoBehaviour
     private List<GameObject> hearts = new List<GameObject>();
     private Vector3 originalPosition;
     public int maxHP = 5;
-    private int currentHP;
+    public int currentHP;
     private Rigidbody2D rb;
     private bool isInvincible = false;
     public float invincibleDuration = 1f;
@@ -21,6 +21,10 @@ public class PlayerHP : MonoBehaviour
     public float knockbackForce = 5f;
     public AudioClip HurtSound;
     private AudioSource audioSource;
+    public int healthPlus;
+    public AudioClip HPUpSound;
+    private Vector3 checkpointPosition;
+    private bool hasCheckpoint = false;
 
     void Awake()
     {
@@ -30,15 +34,16 @@ public class PlayerHP : MonoBehaviour
         audioSource = GetComponent<AudioSource>();
     }
 
-    void Start() 
+    void Start()
     {
+        originalPosition = transform.position;
         currentHP = maxHP;
         CreateHearts();
     }
-    
+
     public void TakeDamage(int damage, Transform attacker)
     {
-        if (isInvincible ) return;
+        if (isInvincible) return;
 
         currentHP -= damage;
         UpdateHearts();
@@ -47,7 +52,7 @@ public class PlayerHP : MonoBehaviour
         animator.SetTrigger("isHurt");
 
         PlayerMove move = GetComponent<PlayerMove>();
-        if(move != null)
+        if (move != null)
         {
             var moveType = move.GetType();
             moveType.GetField("isAttacking", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.SetValue(move, false);
@@ -59,27 +64,31 @@ public class PlayerHP : MonoBehaviour
         rb.AddForce(knockDir * knockbackForce, ForceMode2D.Impulse);
 
         FindObjectOfType<ScreenFlash>().Flash();
-        originalPosition = transform.position;
 
-        if(currentHP <= 0)
+        if (currentHP <= 0)
         {
             Die();
             return;
         }
-            StartCoroutine(InvincibilityCoroutine());
-        }
+        StartCoroutine(InvincibilityCoroutine());
+    }
+
     public void Die()
     {
-        transform.position = originalPosition;
+        Vector3 respawnPos = hasCheckpoint ? checkpointPosition : originalPosition;
+
         animator.SetTrigger("isDead");
         GetComponent<Collider2D>().enabled = false;
         rb.velocity = Vector2.zero;
         rb.bodyType = RigidbodyType2D.Static;
         GetComponent<PlayerMove>().enabled = false;
-        transform.position = new Vector3(transform.position.x,transform.position.y - 0.5f, transform.position.y);
 
+        transform.position = new Vector3(transform.position.x, transform.position.y - 0.5f, transform.position.y);
+
+        StartCoroutine(ReviveAfterDelay(respawnPos));
     }
-    IEnumerator InvincibilityCoroutine() 
+
+    IEnumerator InvincibilityCoroutine()
     {
         isInvincible = true;
 
@@ -89,12 +98,17 @@ public class PlayerHP : MonoBehaviour
         {
             sr.color = new Color(1, 1, 1, 0.5f);
             yield return new WaitForSeconds(invincibleDuration / 10f);
-            sr.color = new Color (1, 1, 1, 1f);
+            sr.color = new Color(1, 1, 1, 1f);
             yield return new WaitForSeconds(invincibleDuration / 10f);
         }
         isInvincible = false;
     }
-
+    public void Heal(int amount)
+    {
+        currentHP = Mathf.Min(currentHP + amount, maxHP);
+        UpdateHearts();
+        audioSource.PlayOneShot(HPUpSound);
+    }
     void CreateHearts()
     {
         for (int i = 0; i < maxHP; i++)
@@ -109,5 +123,26 @@ public class PlayerHP : MonoBehaviour
         {
             hearts[i].SetActive(i < currentHP);
         }
+    }
+    public void SetCheckpoint(Vector3 pos)
+    {
+        checkpointPosition = pos;
+        hasCheckpoint = true;
+    }
+    IEnumerator ReviveAfterDelay(Vector3 respawnPosition)
+    {
+        yield return new WaitForSeconds(3f);
+
+        transform.position = respawnPosition;
+        
+        currentHP = maxHP;
+        UpdateHearts();
+
+        rb.bodyType = RigidbodyType2D.Dynamic;
+        rb.velocity = Vector2.zero;
+        GetComponent<Collider2D>().enabled = true;
+        GetComponent<PlayerMove>().enabled = true;
+        animator.ResetTrigger("isDead");
+        animator.Play("Idle");
     }
 }

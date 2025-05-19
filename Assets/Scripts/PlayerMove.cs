@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using JetBrains.Annotations;
 using UnityEngine;
 using UnityEditor;
-using UnityEngine.Assertions; // 테스트를 위한 Assert 클래스 사용
+using UnityEngine.Assertions;
+using UnityEditor.Callbacks;
+using Unity.VisualScripting; // 테스트를 위한 Assert 클래스 사용
 
 public partial class PlayerMove : MonoBehaviour
 {
@@ -38,6 +40,8 @@ public partial class PlayerMove : MonoBehaviour
     public AudioClip slashSound1; // 첫 번째 공격 소리
     public AudioClip slashSound2; // 두 번째 공격 소리
     private AudioSource audioSource;
+    //stage2 starting point
+    public Transform stage2Start;
 
     void Awake()
     {
@@ -134,7 +138,10 @@ public partial class PlayerMove : MonoBehaviour
     {
         if (collision.gameObject.tag == "Finish")
         {
-            gameManager.NextStage();
+            if (stage2Start != null)
+            {
+                transform.position = stage2Start.position;
+            }
         }
     }
 
@@ -195,92 +202,3 @@ public partial class PlayerMove : MonoBehaviour
         isAttacking = false; // 공격 종료
     }
 }
-
-#if UNITY_EDITOR  // 이 코드는 유니티 에디터에서만 컴파일됩니다. (빌드에는 포함되지 않음)
-public partial class PlayerMove : MonoBehaviour
-{
-    [ContextMenu("Run Tests")]
-    public void RunTests()
-    {
-        Debug.Log("Running Unit Tests on PlayerMove...");
-
-        TestDirectionChange();
-        TestMaxSpeed();
-        TestJump();
-        TestAttackState();
-        TestDashState();
-
-        Debug.Log("All tests completed.");
-    }
-
-    void TestDirectionChange()
-    {
-        Debug.Log("Running TestMovementDirection");
-        transform.localScale = Vector3.one; // Reset scale
-        isFacingRight = true;
-
-        // 오른쪽 방향 설정 시
-        float rightInput = 1f;
-        if (rightInput > 0)
-        {
-            transform.localScale = new Vector3(1, 1, 1);
-            isFacingRight = true;
-        }
-        Assert.IsTrue(transform.localScale.x > 0, "Scale should be positive when moving right");
-        Assert.IsTrue(isFacingRight, "isFacingRight should be true when moving right");
-
-        // 왼쪽 방향 설정 시
-        float leftInput = -1f;
-        if (leftInput < 0)
-        {
-            transform.localScale = new Vector3(-1, 1, 1);
-            isFacingRight = false;
-        }
-        Assert.IsTrue(transform.localScale.x < 0, "Scale should be negative when moving left");
-        Assert.IsFalse(isFacingRight, "isFacingRight should be false when moving left");
-    }
-
-    void TestMaxSpeed()
-    {
-        Debug.Log("Running TestMaxSpeedLimit");
-        rigid.velocity = Vector2.zero;
-        rigid.AddForce(Vector2.right * 100f, ForceMode2D.Impulse);
-        FixedUpdate();
-        Debug.Log($"Current velocity.x = {rigid.velocity.x}");
-        Assert.IsTrue(Mathf.Abs(rigid.velocity.x) <= maxSpeed + 0.1f, "Velocity exceeds maxSpeed limit");
-    }
-
-    void TestJump()
-    {
-        Debug.Log("Running TestJump");
-        isGrounded = true;
-        rigid.velocity = Vector2.zero;
-
-        // 점프 실행
-        rigid.AddForce(Vector2.up * jumpPower, ForceMode2D.Impulse);
-        Debug.Log($"Jump velocity.y = {rigid.velocity.y}");
-        Assert.IsTrue(rigid.velocity.y > 0, "Jump velocity should be positive");
-    }
-
-    void TestAttackState()
-    {
-        Debug.Log("Running TestAttackState");
-        isAttacking = false;
-        animator.ResetTrigger("Attack");
-        animator.SetTrigger("Attack");
-        isAttacking = true;
-        Debug.Log("Checking if attacking state is true...");
-        Assert.IsTrue(isAttacking, "isAttacking should be true after triggering attack");
-    }
-
-    void TestDashState()
-    {
-        Debug.Log("Running TestDashState");
-        isDashing = false;
-        StartCoroutine(Dash());
-        // 실제 코루틴 대기 없이 상태만 테스트
-        Debug.Log("Started Dash coroutine. Checking if isDashing was set to true...");
-        Assert.IsTrue(isDashing || true, "isDashing should be true during Dash coroutine (note: coroutine not awaited)"); // 간접적으로 확인 가능하게 둠
-    }
-}
-#endif

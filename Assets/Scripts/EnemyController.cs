@@ -23,8 +23,6 @@ public class EnemyController : MonoBehaviour
     private Rigidbody2D rb;
     private bool isDead = false;
     public LayerMask groundLayer;
-    public AudioClip GoblinSound;
-    private AudioSource audioSource;
 
     void Awake()
     {
@@ -32,7 +30,6 @@ public class EnemyController : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         currentHP = maxHP;
         player = GameObject.FindGameObjectWithTag("Player").transform;
-        audioSource = GetComponent<AudioSource>();
     }
 
     void Update()
@@ -64,7 +61,6 @@ public class EnemyController : MonoBehaviour
             Vector2 dir = (player.position - transform.position).normalized;
             rb.velocity = new Vector2(dir.x * moveSpeed, rb.velocity.y);
             
-            audioSource.PlayOneShot(GoblinSound);
             // change direction
             if (dir.x > 0) transform.localScale = new Vector3(1,1,1);
             else if (dir.x < 0) transform.localScale = new Vector3(-1, 1 ,1);

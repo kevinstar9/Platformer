@@ -37,11 +37,14 @@ public partial class PlayerMove : MonoBehaviour
     Animator animator; // 애니메이터
     CapsuleCollider2D capsuleCollider; // 캡슐 충돌체
     AudioClip audioClip;
+    EnemyController enemyController;
     public AudioClip slashSound1; // 첫 번째 공격 소리
     public AudioClip slashSound2; // 두 번째 공격 소리
     private AudioSource audioSource;
     //stage2 starting point
     public Transform stage2Start;
+    //fireAttack
+    public bool hasFireAttack = false;
 
     void Awake()
     {
@@ -168,14 +171,21 @@ public partial class PlayerMove : MonoBehaviour
     {
         // 히트박스를 이용한 공격 판정
 
-        Debug.Log($"Checking OverlapBox at {point.position} with size {size}");
         Collider2D[] hitEnemies = Physics2D.OverlapBoxAll(point.position, size, 0f, enemyLayer); // 히트박스 내의 적 감지
-        Debug.Log("Found " + hitEnemies.Length + " enemies");
 
         foreach (Collider2D enemy in hitEnemies)
         {
-            Debug.Log("Hit Enemy: " + enemy.name + " at " + point.name);
-            enemy.GetComponent<EnemyController>()?.TakeDamage(damage); // 적에게 데미지 전달
+            EnemyController enemyController = enemy.GetComponent<EnemyController>();
+
+            if (enemyController != null)
+            {
+                enemyController.TakeDamage(damage);
+
+                if (hasFireAttack && Random.value < 1f)
+                {
+                    enemyController.ApplyBurn();
+                }
+            }
         }
     }
 

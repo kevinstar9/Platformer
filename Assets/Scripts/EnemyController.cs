@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.Mathematics;
 using UnityEngine;
 
 public class EnemyController : MonoBehaviour
@@ -23,6 +24,9 @@ public class EnemyController : MonoBehaviour
     private Rigidbody2D rb;
     private bool isDead = false;
     public LayerMask groundLayer;
+    //fire attack
+    private bool isBurning = false;
+    public GameObject fireEffect;
 
     void Awake()
     {
@@ -83,8 +87,42 @@ public class EnemyController : MonoBehaviour
         {
             isDead = true;
             animator.SetBool("isDead", true);
+            if (fireEffect != null)
+            {
+                fireEffect.SetActive(false);
+            }
             Die();
             //GetComponent<Collider2D>().enabled = false;
+        }
+    }
+    public void ApplyBurn(float duration = 3f, int burnDamage = 1)
+    {
+        if (!isBurning)
+        {
+            if (fireEffect != null)
+            {
+                fireEffect.SetActive(true);
+                fireEffect.transform.localPosition = new Vector3(0, 0, 0);
+            }
+            StartCoroutine(BurnCoroutine(duration, burnDamage));
+        }
+    }
+    private System.Collections.IEnumerator BurnCoroutine(float duration, int damagePerTick)
+    {
+        isBurning = true;
+        float tickInterval = 1f;
+        float time = -0f;
+
+        while (time < duration)
+        {
+            TakeDamage(damagePerTick);
+            yield return new WaitForSeconds(tickInterval);
+            time += tickInterval;
+        }
+        isBurning = false;
+        if (fireEffect != null)
+        {
+            fireEffect.SetActive(false);
         }
     }
      public void Die()
@@ -96,10 +134,10 @@ public class EnemyController : MonoBehaviour
         rb.bodyType = RigidbodyType2D.Static;
 
         CapsuleCollider2D col = GetComponent<CapsuleCollider2D>();
-        if (col != null) 
+        if (col != null)
         {
             col.enabled = false;
-            Debug.Log("콜라이더 비활성화 상태: " + col.enabled); 
+            Debug.Log("콜라이더 비활성화 상태: " + col.enabled);
         }
         GetComponent<EnemyController>().enabled = false;
 
@@ -146,7 +184,6 @@ public class EnemyController : MonoBehaviour
 
         if (hit != null)
         {
-            Debug.Log("💥 Player hit!");
             PlayerHP playerHP = hit.GetComponent<PlayerHP>();
             if (playerHP != null)
             {

@@ -181,9 +181,19 @@ public partial class PlayerMove : MonoBehaviour
             {
                 enemyController.TakeDamage(damage);
 
-                if (hasFireAttack && Random.value < 1f)
+                if (hasFireAttack && Random.value < 0.5f)
                 {
                     enemyController.ApplyBurn();
+                }
+            }
+
+            BossController boss = enemy.GetComponent<BossController>();
+            if (boss != null)
+            {
+                boss.TakeDamage(damage);
+                if (hasFireAttack && Random.value < 0.5f)
+                {
+                    boss.ApplyBurn();
                 }
             }
         }

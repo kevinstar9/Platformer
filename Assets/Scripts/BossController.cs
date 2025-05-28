@@ -2,22 +2,18 @@ using System.Collections;
 using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
-
+using UnityEngine.UI;
 public class BossController : MonoBehaviour
 {
     public float moveSpeed = 2f;
-    public float detectionRange = 5f;
-    public float attackRange = 1f;
+    public float detectionRange = 6f;
     public float attackCooldown = 0f;
     private bool isAttackingNow = false;
-    public int maxHP = 3;
-    private int currentHP;
     public Transform attackPoint;
     public Vector2 attackBoxSize = new Vector2(1.1f, 1.2f);
     private bool isPreparingAttack = false;
     public Transform hitboxPoint;
     public Vector2 hitboxSize = new Vector2(1.1f, 1.2f);
-    public int attackDamage = 1;
     public LayerMask playerLayer;
     private Transform player;
     private Animator animator;
@@ -27,23 +23,37 @@ public class BossController : MonoBehaviour
     //fire attack
     private bool isBurning = false;
     public GameObject fireEffect;
-
+    //hpBar
+    public Slider hpBar;
+    public int maxHP = 50;
+    private int currentHP;
+    public Transform hpBarTransform;
+    private float displayedHP;
+    public float hpLerpSpeed = 5f;
+    //hitted
+    private SpriteRenderer spriteRenderer;
+    public float hitFlashDuration = 0.3f;
+    //DamageText
+    public GameObject damageTextPrefab;
     void Awake()
     {
         animator = GetComponent<Animator>();
         rb = GetComponent<Rigidbody2D>();
         currentHP = maxHP;
+        UpdateHPBarSmooth();
         player = GameObject.FindGameObjectWithTag("Player").transform;
+        displayedHP = maxHP;
+        spriteRenderer = GetComponentInChildren<SpriteRenderer>();
     }
 
     void Update()
     {
-        if (isDead) return;
+        if (rb.bodyType != RigidbodyType2D.Dynamic) return;
 
         float distance = Vector2.Distance(transform.position, player.position);
 
         // Attack
-            // 1. 공격 준비 or 공격 중이면 → 무조건 멈추고 리턴
+        // 1. 공격 준비 or 공격 중이면 → 무조건 멈추고 리턴
         if (isPreparingAttack || isAttackingNow)
         {
             rb.velocity = Vector2.zero;
@@ -53,7 +63,7 @@ public class BossController : MonoBehaviour
 
         // 2. 공격 실행 조건
         if (PlayerInAttackBox())
-        {   
+        {
             StartCoroutine(PrepareAndAttack());
             return;
         }
@@ -64,14 +74,25 @@ public class BossController : MonoBehaviour
             animator.SetBool("isRunning", true);
             Vector2 dir = (player.position - transform.position).normalized;
             rb.velocity = new Vector2(dir.x * moveSpeed, rb.velocity.y);
-            
+
             // change direction
-            if (dir.x > 0) transform.localScale = new Vector3(1,1,1);
-            else if (dir.x < 0) transform.localScale = new Vector3(-1, 1 ,1);
+            if (dir.x > 0) transform.localScale = new Vector3(1, 1, 1);
+            else if (dir.x < 0) transform.localScale = new Vector3(-1, 1, 1);
         }
-        else{
+        else
+        {
             animator.SetBool("isRunning", false);
             rb.velocity = new Vector2(0, rb.velocity.y);
+        }
+        displayedHP = Mathf.Lerp(displayedHP, currentHP, Time.deltaTime * hpLerpSpeed);
+        UpdateHPBarSmooth();
+    }
+    void LateUpdate()
+    {
+        if (hpBarTransform != null)
+        {
+            hpBarTransform.position = transform.position + new Vector3(0, 0.5f, 0);
+            hpBarTransform.forward = Camera.main.transform.forward;
         }
     }
 
@@ -82,17 +103,44 @@ public class BossController : MonoBehaviour
         currentHP -= damage;
         animator.SetTrigger("isHurt");
 
+        ShowDamageText(damage);
+
+        StartCoroutine(HitFlash());
 
         if (currentHP <= 0)
         {
-            isDead = true;
-            animator.SetBool("isDead", true);
-            if (fireEffect != null)
-            {
-                fireEffect.SetActive(false);
-            }
             Die();
-            //GetComponent<Collider2D>().enabled = false;
+        }
+        UpdateHPBar();
+    }
+    void ShowDamageText(int dmg)
+    {
+        if (damageTextPrefab != null)
+        {
+            Vector3 spawnPos = transform.position + new Vector3(0, -1, 0);
+            GameObject textObj = Instantiate(damageTextPrefab, spawnPos, quaternion.identity);
+            textObj.GetComponent<DamageText>().SetText(dmg);
+        }
+    }
+    IEnumerator HitFlash()
+    {
+        Color originalColor = spriteRenderer.color;
+        spriteRenderer.color = Color.white;
+        yield return new WaitForSeconds(hitFlashDuration);
+        spriteRenderer.color = originalColor;
+    }
+    void UpdateHPBar()
+    {
+        if (hpBar != null)
+        {
+            hpBar.value = (float)currentHP / maxHP;
+        }
+    }
+    void UpdateHPBarSmooth()
+    {
+        if (hpBar != null)
+        {
+            hpBar.value = (float)currentHP / maxHP;
         }
     }
     public void ApplyBurn(float duration = 3f, int burnDamage = 1)
@@ -107,9 +155,10 @@ public class BossController : MonoBehaviour
             StartCoroutine(BurnCoroutine(duration, burnDamage));
         }
     }
-    private System.Collections.IEnumerator BurnCoroutine(float duration, int damagePerTick)
+    private IEnumerator BurnCoroutine(float duration, int damagePerTick)
     {
         isBurning = true;
+        rb.velocity = Vector2.zero;
         float tickInterval = 1f;
         float time = -0f;
 
@@ -125,11 +174,13 @@ public class BossController : MonoBehaviour
             fireEffect.SetActive(false);
         }
     }
-     public void Die()
+    // Die 함수 내부 수정
+    public void Die()
     {
-        transform.position = new Vector3(transform.position.x, transform.position.y - 0.734941f, transform.position.z);
-        animator.SetTrigger("isDead");
+        if (isDead) return;
 
+        isDead = true;
+        animator.SetTrigger("Die");
         rb.velocity = Vector2.zero;
         rb.bodyType = RigidbodyType2D.Static;
 
@@ -137,12 +188,18 @@ public class BossController : MonoBehaviour
         if (col != null)
         {
             col.enabled = false;
-            Debug.Log("콜라이더 비활성화 상태: " + col.enabled);
         }
-        GetComponent<EnemyController>().enabled = false;
+
+        GetComponent<BossController>().enabled = false;
+
+        if (fireEffect != null)
+        {
+            fireEffect.SetActive(false);
+        }
 
         Destroy(gameObject, 2f);
     }
+
 
     IEnumerator Attack()
     {
